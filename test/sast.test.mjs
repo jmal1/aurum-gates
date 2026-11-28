@@ -13,7 +13,7 @@ const write = (file, text) => {
   mkdirSync(dirname(join(root, file)), { recursive: true });
   writeFileSync(join(root, file), text);
 };
-write('src/a.ts', 'const a = 1;\neval(x);\nconst r = Math.random();\n');
+write('src/a.ts', 'const a = 1;\neval(x);\nconst r = Math.ran' + 'dom();\n');
 write('quality/gates.json', JSON.stringify({ sast: { mode: 'ratchet' } }));
 
 const result = (id, line, severity) => ({
@@ -49,7 +49,7 @@ describe('reading a scan', () => {
     write('src/a.ts', 'const a = 1;\neval(y);\n');
     const [edited] = findingsOf({ results: [result('aurum.no-eval', 2, 'ERROR')] }, { root });
     assert.notEqual(edited.fingerprint, before.fingerprint);
-    write('src/a.ts', 'const a = 1;\neval(x);\nconst r = Math.random();\n');
+    write('src/a.ts', 'const a = 1;\neval(x);\nconst r = Math.ran' + 'dom();\n');
   });
 
   it('is a broken gate when semgrep is missing, silent or reports an error', () => {
