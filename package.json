@@ -1,6 +1,6 @@
 {
   "name": "@jmal1/aurum-gates",
-  "version": "1.10.0",
+  "version": "1.11.0",
   "description": "Aurum quality gate mechanics: modes, shrink-only baselines, the failure message and the baseline guard (DS-059 §4.1).",
   "license": "UNLICENSED",
   "type": "module",

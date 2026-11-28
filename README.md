@@ -127,7 +127,7 @@ export default bans({
 One gate replaces the `scripts/check-honest-tests.mjs` copy of every repo: `"check:honest-tests": "aurum-gates run honest-tests"`.
 It scans test files (`*.test.*`, `*.spec.*`, `e2e/`, `test/`, `tests/`, `__tests__/`) and the Vitest and Playwright config files.
 Rules that fail in the repo's mode: `wait-for-timeout`, `real-time-wait`, `forced-interaction`, `outcome-set` and `open-status`
-(the last two allowed by `// spec: <ID> �<n>` on the line above). Report-only rules (shown, never failing, until the repo ratchets
+(the last two allowed by `// spec: <ID> �<n>` on the line above), plus `real-clock` (a test reads `new Date()` or `Date.now()` and hard-codes a `20YY-MM-DD` date, without fake timers, `setSystemTime` or `clock.install` in the file: a time bomb) and `unseeded-random` (`Math.random()`). Report-only rules (shown, never failing, until the repo ratchets
 them): `bare-tick`, `microtask-or-frame-wait`, `raised-timeout`, `retry-config`. Findings are counted per file and rule. A repo with
 no test file is a broken gate. `loosened-threshold` needs the diff and is not built yet.
 

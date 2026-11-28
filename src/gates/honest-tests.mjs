@@ -1,6 +1,6 @@
 // Gate `honest-tests` (G1, DS-059 §4.2, step 6.152; workspace non-negotiable 9, DS-013 §4.2.2): the greppable ways a test
 // bends around product behaviour. The first five rules are the canonical form of the copies the repos used to keep
-// (step 6.142); the rest are new and `reportOnly` (shown, never failing) until each repo ratchets them. A text scan with
+// (step 6.142); the rest are new: `real-clock` and `unseeded-random` fail, the others are `reportOnly` (shown, never failing) until each repo ratchets them. A text scan with
 // no dependencies: output is file paths, rule names and counts.
 // shortcut: the `loosened-threshold` rule needs the diff, so it is not here; it is a follow-up for the baseline guard.
 import { readFileSync, readdirSync } from 'node:fs';
@@ -14,6 +14,10 @@ const SPEC = /^\s*\/\/\s*spec:\s*(?:DS-\d{3}|REQ-[A-Z]+-\d{3}|ADR-\d{4})\b[^\n]*
 const REMOVAL = /\b(?:rmSync|rm|rmdir|unlinkSync)\s*\([^;]*$/;
 const NOT_EXPECT = '(?:(?!expect\\()[\\s\\S])';
 const TIMERS = '(?:runOnlyPendingTimers|advanceTimersToNextTimer)(?:Async)?';
+// A file that freezes or injects the clock itself (fake timers, setSystemTime, mockdate, Playwright page.clock) is trusted.
+const CLOCK_FROZEN =
+  /\b(?:useFakeTimers|setSystemTime|mockdate|MockDate)\b|\bmock\.timers\.enable\b|\bclock\.(?:install|setFixedTime|setSystemTime)\b/;
+const DATE_LITERAL = /['"`]20\d\d-\d\d-\d\d/;
 const SPEC_ALLOW = 'a `// spec: <ID> §<n>` comment on the line above, naming the spec that allows it.';
 
 export const HONEST_RULES = {
@@ -38,6 +42,14 @@ export const HONEST_RULES = {
     why: 'an open-ended status range passes on every error the spec does not allow. Workspace rule 9.',
     fix: 'assert the exact status the spec names.',
     allow: SPEC_ALLOW,
+  },
+  'real-clock': {
+    why: 'a test that reads the real clock next to a hard-coded calendar date is a time bomb: it fails once the real day passes the date. DS-059 §4.2.',
+    fix: 'freeze or inject the clock (vi.useFakeTimers + vi.setSystemTime, or pass `now`).',
+  },
+  'unseeded-random': {
+    why: 'Math.random in a test makes a failure unrepeatable. DS-059 §4.2.',
+    fix: 'use a fixed value or a seeded generator.',
   },
   'bare-tick': {
     why: 'an empty act or an extra timer tick is "one more turn to get past a race". DS-059 §4.2.',
@@ -82,6 +94,10 @@ const FILE_RULES = [
     /\bexpect\([^;\n]*\bstatus\b[^;\n]*\)\s*\.(?:toBeGreaterThan|toBeGreaterThanOrEqual|toBeLessThan|toBeLessThanOrEqual)\(\s*[2-5]\d\d\s*\)|\bexpect\([^;\n]*\bstatus\s*[<>]=?\s*[2-5]\d\d[^;\n]*\)\s*\.toBe\(true\)/g,
     { spec: true },
   ),
+  // shortcut: a clock read alone (relative offsets) passes; only a file that also hard-codes a date is flagged, since that
+  // pairing is the time bomb (api #1029). Widen when a bomb slips past.
+  rule('real-clock', /\bnew\s+Date\(\s*\)|\bDate\.now\(\s*\)/g, { unless: CLOCK_FROZEN, when: DATE_LITERAL }),
+  rule('unseeded-random', /\bMath\.random\(\s*\)/g),
   rule(
     'bare-tick',
     new RegExp(
@@ -128,7 +144,7 @@ export function scanText(file, text) {
   const add = (id, by = 1) => by && (n[id] = (n[id] ?? 0) + by);
   if (TEST_FILE.test(file))
     for (const r of FILE_RULES) {
-      if (r.skip?.(file)) continue;
+      if (r.skip?.(file) || r.unless?.test(text) || (r.when && !r.when.test(text))) continue;
       for (const m of text.matchAll(r.re)) {
         if (r.ignoreBefore?.test(text.slice(Math.max(0, m.index - 160), m.index))) continue;
         const line = text.slice(0, m.index).split('\n').length;

@@ -3,10 +3,14 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, it } from 'node:test';
+import { after, before, describe, it, mock } from 'node:test';
 import { main } from '../src/cli.mjs';
 import { LEDGER_FILE, initLedger, readLedger, schoolDaysBetween, verdict } from '../src/ledger.mjs';
 
+const NOW = '2026-11-28T00:00:00.000Z';
+// The CLI reads the clock itself: freeze it so the ledger's age checks do not depend on the real day.
+before(() => mock.timers.enable({ apis: ['Date'], now: Date.parse(NOW) }));
+after(() => mock.timers.reset());
 const root = (files = {}) => {
   const r = mkdtempSync(join(tmpdir(), 'ledger-'));
   for (const [f, text] of Object.entries(files)) {
@@ -115,7 +119,7 @@ describe('flake-hunt with a ledger', () => {
   it('--init-ledger writes the ledger from the first hunt', async () => {
     process.env.GITHUB_TOKEN = 'x';
     const r = root();
-    const out = await main([...ARGS, '--init-ledger'], { root: r, hunter: gh(new Date().toISOString()) });
+    const out = await main([...ARGS, '--init-ledger'], { root: r, hunter: gh(NOW) });
     assert.equal(out.code, 0);
     assert.deepEqual(readLedger(r), { 'a > one': { issue: 7 } });
   });
@@ -127,7 +131,7 @@ describe('flake-hunt with a ledger', () => {
       ['enforce', 1],
     ]) {
       const r = root({ [LEDGER_FILE]: '{}', 'quality/gates.json': JSON.stringify({ 'flake-hunt': { mode } }) });
-      const out = await main(ARGS, { root: r, hunter: gh(new Date().toISOString()) });
+      const out = await main(ARGS, { root: r, hunter: gh(NOW) });
       assert.equal(out.code, code);
       assert.match(out.text, /not in the ledger: a > one/);
     }
@@ -153,7 +157,7 @@ describe('flake-hunt with a ledger', () => {
   it('treats a gates.json with no flake-hunt entry as report mode, for the first ledger run too', async () => {
     process.env.GITHUB_TOKEN = 'x';
     const r = root({ 'quality/gates.json': JSON.stringify({ sast: { mode: 'report' } }) });
-    const out = await main([...ARGS, '--init-ledger'], { root: r, hunter: gh(new Date().toISOString()) });
+    const out = await main([...ARGS, '--init-ledger'], { root: r, hunter: gh(NOW) });
     assert.equal(out.code, 0);
     assert.deepEqual(readLedger(r), { 'a > one': { issue: 7 } });
   });
@@ -165,6 +169,6 @@ describe('flake-hunt with a ledger', () => {
       'quality/gates.json': JSON.stringify({ 'flake-hunt': { mode: 'enforce' } }),
     };
     assert.equal((await main(ARGS, { root: root(files), hunter: gh('2020-01-01T00:00:00Z') })).code, 1);
-    assert.equal((await main(ARGS, { root: root(files), hunter: gh(new Date().toISOString()) })).code, 0);
+    assert.equal((await main(ARGS, { root: root(files), hunter: gh(NOW) })).code, 0);
   });
 });

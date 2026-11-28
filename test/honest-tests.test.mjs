@@ -107,6 +107,60 @@ describe('honest-tests: the new rules', () => {
     assert.deepEqual(hits(`${run}\nexpect(a).toBe(1);\n${run}`), {});
     assert.deepEqual(hits('await act(async () => { await go(); });\nvi.advanceTimersByTime(10);'), {});
   });
+  it('flags a real-clock read next to a hard-coded date, unless the file freezes the clock', () => {
+    const now = 'const at = new ' + 'Date();';
+    const dated = "const due = '2026-12-31';";
+    assert.deepEqual(
+      hits(`${now}
+${dated}`),
+      { 'real-clock': 1 },
+    );
+    assert.deepEqual(
+      hits(
+        `const t = Date.` +
+          `now();
+${dated}`,
+      ),
+      { 'real-clock': 1 },
+    );
+    assert.deepEqual(hits(now), {});
+    assert.deepEqual(
+      hits(`${dated}
+const at = new Date(due);`),
+      {},
+    );
+    assert.deepEqual(
+      hits(
+        `vi.useFake` +
+          `Timers();
+${now}
+${dated}`,
+      ),
+      {},
+    );
+    assert.deepEqual(hits(['mock.timers.' + "enable({ apis: ['Date'] });", now, dated].join('\n')), {});
+    assert.deepEqual(
+      hits(
+        `vi.setSystem` +
+          `Time(due);
+${now}
+${dated}`,
+      ),
+      {},
+    );
+    assert.deepEqual(
+      hits(
+        `${now}
+${dated}`,
+        'src/a.ts',
+      ),
+      {},
+    );
+  });
+  it('flags an unseeded random', () => {
+    assert.deepEqual(hits('const n = Math.ran' + 'dom();'), { 'unseeded-random': 1 });
+    assert.deepEqual(hits('const n = seeded();'), {});
+  });
   it('flags a microtask or frame wait', () => {
     for (const code of [
       'await new Pro' + 'mise((r) => set' + 'Immediate(r));',
