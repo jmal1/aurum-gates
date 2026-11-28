@@ -1,6 +1,6 @@
 // Gate `honest-tests` (G1, DS-059 §4.2, step 6.152; workspace non-negotiable 9, DS-013 §4.2.2): the greppable ways a test
 // bends around product behaviour. The first five rules are the canonical form of the copies the repos used to keep
-// (step 6.142); the rest are new and `reportOnly` (shown, never failing) until each repo ratchets them. A text scan with
+// (step 6.142); the rest are new: `real-clock` and `unseeded-random` fail, the others are `reportOnly` (shown, never failing) until each repo ratchets them. A text scan with
 // no dependencies: output is file paths, rule names and counts.
 // shortcut: the `loosened-threshold` rule needs the diff, so it is not here; it is a follow-up for the baseline guard.
 import { readFileSync, readdirSync } from 'node:fs';
@@ -16,7 +16,7 @@ const NOT_EXPECT = '(?:(?!expect\\()[\\s\\S])';
 const TIMERS = '(?:runOnlyPendingTimers|advanceTimersToNextTimer)(?:Async)?';
 // A file that freezes or injects the clock itself (fake timers, setSystemTime, mockdate, Playwright page.clock) is trusted.
 const CLOCK_FROZEN =
-  /\b(?:useFakeTimers|setSystemTime|mockdate|MockDate)\b|\bclock\.(?:install|setFixedTime|setSystemTime)\b/;
+  /\b(?:useFakeTimers|setSystemTime|mockdate|MockDate)\b|\bmock\.timers\.enable\b|\bclock\.(?:install|setFixedTime|setSystemTime)\b/;
 const DATE_LITERAL = /['"`]20\d\d-\d\d-\d\d/;
 const SPEC_ALLOW = 'a `// spec: <ID> §<n>` comment on the line above, naming the spec that allows it.';
 

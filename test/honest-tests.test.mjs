@@ -138,6 +138,7 @@ ${dated}`,
       ),
       {},
     );
+    assert.deepEqual(hits(['mock.timers.' + "enable({ apis: ['Date'] });", now, dated].join('\n')), {});
     assert.deepEqual(
       hits(
         `vi.setSystem` +

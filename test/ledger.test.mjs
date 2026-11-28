@@ -3,11 +3,14 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, it } from 'node:test';
+import { after, before, describe, it, mock } from 'node:test';
 import { main } from '../src/cli.mjs';
 import { LEDGER_FILE, initLedger, readLedger, schoolDaysBetween, verdict } from '../src/ledger.mjs';
 
 const NOW = '2026-11-28T00:00:00.000Z';
+// The CLI reads the clock itself: freeze it so the ledger's age checks do not depend on the real day.
+before(() => mock.timers.enable({ apis: ['Date'], now: Date.parse(NOW) }));
+after(() => mock.timers.reset());
 const root = (files = {}) => {
   const r = mkdtempSync(join(tmpdir(), 'ledger-'));
   for (const [f, text] of Object.entries(files)) {
